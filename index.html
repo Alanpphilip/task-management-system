@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6fa">
+  <title>TaskFlow — Task Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="TaskFlow home"><span class="brand-icon" aria-hidden="true">✓</span><span>taskflow</span></a>
+      <div class="account-area">
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch theme"><span data-theme-icon aria-hidden="true">☾</span></button>
+        <span class="avatar" aria-hidden="true">{{ current_user.username[0]|upper }}</span>
+        <span class="account-name">{{ current_user.username }}{% if current_user.role == 'admin' %}<span class="role-tag">Admin</span>{% endif %}</span>
+        <form action="{{ url_for('logout') }}" method="post"><button class="logout-button" type="submit">Sign out</button></form>
+      </div>
+    </header>
+
+    <section class="intro">
+      <div>
+        <p class="eyebrow"><span class="eyebrow-mark"></span> PERSONAL WORKSPACE</p>
+        <h1>Make today <span>count.</span></h1>
+        <p class="subtitle">A little progress each day adds up to big results.</p>
+      </div>
+      <div class="focus-note"><span class="focus-spark">✦</span><span><strong>One thing at a time</strong><small>Plan your work. Find your focus.</small></span></div>
+    </section>
+
+    <section class="stats" aria-label="Task summary">
+      <article class="stat-card"><span class="stat-icon icon-total" aria-hidden="true">▤</span><div><p class="stat-label">Total tasks</p><p class="stat-value">{{ total }}</p></div><span class="stat-footnote">in your workspace</span></article>
+      <article class="stat-card"><span class="stat-icon icon-pending" aria-hidden="true">◷</span><div><p class="stat-label">In progress</p><p class="stat-value">{{ pending }}</p></div><span class="stat-footnote">ready for you</span></article>
+      <article class="stat-card"><span class="stat-icon icon-complete" aria-hidden="true">✓</span><div><p class="stat-label">Completed</p><p class="stat-value">{{ completed }}</p></div><span class="stat-footnote">nice work</span></article>
+    </section>
+
+    <section class="progress-panel" aria-label="Overall completion">
+      <div class="progress-copy"><span class="progress-label">YOUR MOMENTUM</span><span class="progress-detail">{{ completed }} of {{ total }} tasks complete</span></div>
+      <div class="progress-track" role="progressbar" aria-valuenow="{{ (completed / total * 100)|round|int if total else 0 }}" aria-valuemin="0" aria-valuemax="100"><span style="width: {{ (completed / total * 100)|round|int if total else 0 }}%"></span></div>
+      <strong class="progress-percent">{{ (completed / total * 100)|round|int if total else 0 }}%</strong>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}<div class="notices" aria-live="polite">{% for category, message in messages %}<p class="notice {{ category }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+    {% endwith %}
+
+    <div class="workspace">
+      <section class="panel composer">
+        <div class="panel-heading">
+          <div><p class="eyebrow">{{ 'MAKE AN UPDATE' if edit_task else 'START WITH A PLAN' }}</p><h2>{{ 'Edit task' if edit_task else 'Add a task' }}</h2></div>
+          <span class="heading-mark" aria-hidden="true">{{ '✎' if edit_task else '+' }}</span>
+        </div>
+        <form action="{{ url_for('update_task', task_id=edit_task.id) if edit_task else url_for('add_task') }}" method="post">
+          <label for="title">Task title</label>
+          <input id="title" name="title" type="text" maxlength="160" placeholder="e.g. Finish project proposal" value="{{ edit_task.title if edit_task else '' }}" required autofocus>
+          <label for="description">Description <span class="optional">Optional</span></label>
+          <textarea id="description" name="description" rows="4" maxlength="2000" placeholder="Add a few details to help you get started…">{{ edit_task.description if edit_task else '' }}</textarea>
+          <div class="field-grid">
+            <div><label for="priority">Priority</label><select id="priority" name="priority"><option value="Low" {{ 'selected' if edit_task and edit_task.priority == 'Low' }}>Low</option><option value="Medium" {{ 'selected' if not edit_task or edit_task.priority == 'Medium' }}>Medium</option><option value="High" {{ 'selected' if edit_task and edit_task.priority == 'High' }}>High</option></select></div>
+            <div><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="{{ edit_task.due_date if edit_task and edit_task.due_date else '' }}"></div>
+          </div>
+          <label for="category">Category</label>
+          <input id="category" name="category" type="text" maxlength="40" value="{{ edit_task.category if edit_task else 'General' }}" placeholder="e.g. Work, Study, Personal">
+          <div class="form-actions"><button class="primary-button" type="submit">{{ 'Save changes' if edit_task else 'Add task' }} <span aria-hidden="true">→</span></button>{% if edit_task %}<a class="cancel-link" href="{{ url_for('index') }}">Cancel</a>{% endif %}</div>
+        </form>
+        <p class="composer-tip"><span aria-hidden="true">✦</span> Keep it small. You can always add details later.</p>
+      </section>
+
+      <section class="panel task-panel">
+        <div class="panel-heading list-heading">
+          <div><p class="eyebrow">YOUR WORKLOAD</p><h2>Task list <span class="count-pill">{{ tasks|length }}{% if tasks|length != total %} / {{ total }}{% endif %}</span></h2></div>
+          <span class="list-caption">{{ 'All your tasks' if not query and not status_filter and not priority_filter else 'Filtered results' }}</span>
+        </div>
+        <form class="filter-bar" method="get" action="{{ url_for('index') }}">
+          <label class="search-wrap"><span aria-hidden="true">⌕</span><input class="search-input" type="search" name="q" value="{{ query }}" placeholder="Search tasks or categories…" aria-label="Search tasks"></label>
+          <select name="status" aria-label="Filter by status"><option value="">All statuses</option><option value="Pending" {{ 'selected' if status_filter == 'Pending' }}>Pending</option><option value="Completed" {{ 'selected' if status_filter == 'Completed' }}>Completed</option></select>
+          <select name="priority" aria-label="Filter by priority"><option value="">All priorities</option><option value="High" {{ 'selected' if priority_filter == 'High' }}>High priority</option><option value="Medium" {{ 'selected' if priority_filter == 'Medium' }}>Medium priority</option><option value="Low" {{ 'selected' if priority_filter == 'Low' }}>Low priority</option></select>
+          <select name="sort" aria-label="Sort tasks"><option value="newest" {{ 'selected' if sort == 'newest' }}>Newest</option><option value="oldest" {{ 'selected' if sort == 'oldest' }}>Oldest</option><option value="due" {{ 'selected' if sort == 'due' }}>Due date</option><option value="priority" {{ 'selected' if sort == 'priority' }}>Priority</option></select>
+          <button class="filter-button" type="submit">Filter</button>
+          {% if query or status_filter or priority_filter or sort != 'newest' %}<a class="clear-filters" href="{{ url_for('index') }}">Clear</a>{% endif %}
+        </form>
+        {% if tasks %}
+          <div class="task-list">
+          {% for task in tasks %}
+            <article class="task-row {{ 'is-complete' if task.status == 'Completed' else '' }}">
+              <form class="toggle-form" action="{{ url_for('toggle_task', task_id=task.id) }}" method="post"><button class="check-button" type="submit" aria-label="{{ 'Mark pending' if task.status == 'Completed' else 'Mark completed' }}: {{ task.title }}">{% if task.status == 'Completed' %}✓{% endif %}</button></form>
+              <div class="task-copy">
+                <div class="task-title-line"><h3>{{ task.title }}</h3><span class="status {{ 'done' if task.status == 'Completed' else 'pending' }}"><i></i>{{ task.status }}</span><span class="priority-badge {{ task.priority|lower }}"><span class="priority-dot"></span>{{ task.priority }}</span>{% if current_user.role == 'admin' and task.owner_name %}<span class="owner-label">{{ task.owner_name }}</span>{% endif %}</div>
+                {% if task.description %}<p class="task-description">{{ task.description }}</p>{% endif %}
+                <div class="task-meta"><span class="category-label"><span aria-hidden="true">#</span>{{ task.category }}</span>{% if task.due_date %}<span class="due-label {{ 'overdue' if task.status != 'Completed' and task.due_date < today_date else 'due-today' if task.status != 'Completed' and task.due_date == today_date else '' }}"><span aria-hidden="true">◷</span>{{ 'Overdue · ' if task.status != 'Completed' and task.due_date < today_date else 'Due today · ' if task.status != 'Completed' and task.due_date == today_date else 'Due ' }}{{ task.due_date }}</span>{% endif %}<span class="task-date">Added {{ task.created_at }}</span></div>
+              </div>
+              <div class="task-actions"><a class="icon-action" href="{{ url_for('index', edit=task.id) }}" aria-label="Edit {{ task.title }}" title="Edit task">✎</a><form action="{{ url_for('delete_task', task_id=task.id) }}" method="post" onsubmit="return confirm('Delete this task?')"><button class="icon-action delete-action" type="submit" aria-label="Delete {{ task.title }}" title="Delete task">×</button></form></div>
+            </article>
+          {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state"><span class="empty-icon" aria-hidden="true">✦</span><h3>{{ 'No matching tasks' if query or status_filter or priority_filter else 'A clear space to start' }}</h3><p>{{ 'Try changing the search or filters.' if query or status_filter or priority_filter else 'Add your first task and build a little momentum.' }}</p></div>
+        {% endif %}
+        <footer class="list-footer"><span><span class="footer-dot"></span> Changes save as you go</span><span>{{ completed }} of {{ total }} completed</span></footer>
+      </section>
+    </div>
+    <footer class="page-footer">TaskFlow <span>·</span> Make room for what matters.</footer>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

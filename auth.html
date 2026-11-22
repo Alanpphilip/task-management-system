@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ 'Create account' if mode == 'register' else 'Sign in' }} — TaskFlow</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-page">
+  <button class="theme-toggle auth-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch theme"><span data-theme-icon aria-hidden="true">☾</span></button>
+  <main class="auth-card">
+    <a class="brand auth-brand" href="{{ url_for('login') }}"><span class="brand-icon">✓</span> taskflow</a>
+    <p class="eyebrow">YOUR PERSONAL WORKSPACE</p>
+    <h1>{{ 'Create your account' if mode == 'register' else 'Welcome back' }}</h1>
+    <p class="auth-subtitle">{{ 'Start organizing your day, one task at a time.' if mode == 'register' else 'Sign in to pick up where you left off.' }}</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="notices" aria-live="polite">{% for category, message in messages %}<p class="notice {{ category }}">{{ message }}</p>{% endfor %}</div>{% endif %}{% endwith %}
+    <form method="post" action="{{ url_for('create_account') if mode == 'register' else url_for('sign_in') }}">
+      <label for="username">Username</label><input id="username" name="username" type="text" minlength="3" maxlength="40" autocomplete="username" required autofocus>
+      <label for="password">Password</label><input id="password" name="password" type="password" minlength="8" autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" required>
+      <button class="primary-button auth-submit" type="submit">{{ 'Create account' if mode == 'register' else 'Sign in' }} <span>→</span></button>
+    </form>
+    <p class="auth-switch">{{ 'Already have an account?' if mode == 'register' else 'New to TaskFlow?' }} <a href="{{ url_for('login' if mode == 'register' else 'register') }}">{{ 'Sign in' if mode == 'register' else 'Create an account' }}</a></p>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>
